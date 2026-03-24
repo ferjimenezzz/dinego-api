@@ -8,11 +8,13 @@ use Illuminate\Http\Request;
 
 class RestaurantController extends Controller
 {
-    public function index()
-    {
-        $restaurants = Restaurant::all();
-        return response()->json(['data' => $restaurants], 200);
-    }
+    // En tu RestaurantController.php
+public function index()
+{
+    // El 'with' hace que Laravel adjunte todas las reseñas automáticamente
+    $restaurants = Restaurant::with('reviews')->get();
+    return response()->json(['data' => $restaurants], 200);
+}
 
     public function show($id)
     {
