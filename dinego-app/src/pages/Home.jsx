@@ -8,12 +8,17 @@ export default function Home() {
     const navigate = useNavigate();
     const [isLoggedIn, setIsLoggedIn] = useState(false);
 
-    // Modal de creación de reseña
+    // --- NUEVO: Estado para la barra de búsqueda ---
+    const [searchTerm, setSearchTerm] = useState('');
+
+    // Estados de modales
     const [modalOpen, setModalOpen] = useState(false);
     const [currentReview, setCurrentReview] = useState({ restaurantId: null, rating: 0 });
     const [commentText, setCommentText] = useState('');
 
-    // Nuevo estado para controlar qué restaurante tiene las reseñas desplegadas
+    const [addModalOpen, setAddModalOpen] = useState(false);
+    const [newRestaurant, setNewRestaurant] = useState({ name: '', address: '' });
+
     const [expandedId, setExpandedId] = useState(null);
 
     const fetchRestaurants = () => {
@@ -75,39 +80,110 @@ export default function Home() {
         }
     };
 
-    // Función para mostrar/ocultar los comentarios de un restaurante
-    const toggleReviews = (id) => {
-        if (expandedId === id) {
-            setExpandedId(null); // Si ya estaba abierto, lo cierra
-        } else {
-            setExpandedId(id); // Si estaba cerrado, lo abre
+    const handleAddRestaurant = async () => {
+        if (!newRestaurant.name.trim() || !newRestaurant.address.trim()) {
+            alert('El nombre y la dirección son obligatorios.');
+            return;
+        }
+
+        try {
+            await api.post('/restaurants', {
+                name: newRestaurant.name,
+                address: newRestaurant.address,
+                lat: 20.5931,
+                lng: -100.3875 
+            });
+            
+            alert('¡Restaurante agregado con éxito! 🍽️');
+            setAddModalOpen(false); 
+            setNewRestaurant({ name: '', address: '' }); 
+            fetchRestaurants(); 
+        } catch (err) {
+            console.error(err);
+            alert(err.response?.data?.message || 'Hubo un error al agregar el restaurante.');
         }
     };
+
+    const toggleReviews = (id) => {
+        if (expandedId === id) {
+            setExpandedId(null); 
+        } else {
+            setExpandedId(id); 
+        }
+    };
+
+    // --- NUEVO: Filtramos los restaurantes según lo que escribas ---
+    // Si searchTerm está vacío, muestra todos. Si escribes "tacos", busca los que incluyan esa palabra.
+    const filteredRestaurants = restaurants.filter(restaurant => 
+        restaurant.name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
 
     return (
         <div className="container">
             <header className="header">
                 <h1>🍽️ DineGo</h1>
                 
-                {isLoggedIn ? (
-                    <button 
-                        className="btn-primary" 
-                        onClick={handleLogout}
-                        style={{ backgroundColor: '#7f8c8d' }} 
-                    >
-                        Cerrar Sesión
-                    </button>
-                ) : (
-                    <Link to="/login">
-                        <button className="btn-primary">Iniciar Sesión</button>
-                    </Link>
-                )}
+                <div style={{ display: 'flex', gap: '10px' }}>
+                    {isLoggedIn ? (
+                        <>
+                            <button 
+                                className="btn-primary" 
+                                onClick={() => setAddModalOpen(true)}
+                                style={{ backgroundColor: '#2ecc71' }} 
+                            >
+                                + Nuevo Restaurante
+                            </button>
+                            <button 
+                                className="btn-primary" 
+                                onClick={handleLogout}
+                                style={{ backgroundColor: '#7f8c8d' }} 
+                            >
+                                Cerrar Sesión
+                            </button>
+                        </>
+                    ) : (
+                        <Link to="/login">
+                            <button className="btn-primary">Iniciar Sesión</button>
+                        </Link>
+                    )}
+                </div>
             </header>
+
+            {/* --- NUEVO: Barra de Búsqueda Visual --- */}
+            <div style={{ marginBottom: '30px' }}>
+                <input 
+                    type="text" 
+                    placeholder="🔍 Buscar restaurante por nombre..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    style={{ 
+                        width: '100%', 
+                        padding: '15px 20px', 
+                        fontSize: '1.1rem', 
+                        borderRadius: '12px', 
+                        border: '1px solid #dfe6e9', 
+                        boxShadow: '0 4px 6px rgba(0,0,0,0.05)',
+                        boxSizing: 'border-box',
+                        outline: 'none',
+                        transition: 'border-color 0.3s'
+                    }}
+                    onFocus={(e) => e.target.style.borderColor = '#ff4757'}
+                    onBlur={(e) => e.target.style.borderColor = '#dfe6e9'}
+                />
+            </div>
 
             {error && <p style={{ color: 'red', textAlign: 'center' }}>{error}</p>}
 
+            {/* Si no hay resultados de búsqueda, mostramos un mensaje amigable */}
+            {filteredRestaurants.length === 0 && !error && (
+                <p style={{ textAlign: 'center', color: '#7f8c8d', fontSize: '1.2rem', marginTop: '40px' }}>
+                    No encontramos ningún restaurante con ese nombre 😢
+                </p>
+            )}
+
             <div className="grid">
-                {restaurants.map(restaurant => (
+                {/* OJO: Aquí cambiamos "restaurants.map" por "filteredRestaurants.map" */}
+                {filteredRestaurants.map(restaurant => (
                     <div className="card" key={restaurant.id}>
                         <h2>{restaurant.name}</h2>
                         <p>📍 {restaurant.address}</p>
@@ -125,7 +201,6 @@ export default function Home() {
                             ))}
                         </div>
 
-                        {/* Botón para desplegar las reseñas */}
                         <button 
                             className="btn-secondary" 
                             style={{ width: '100%', fontSize: '0.9rem' }}
@@ -134,7 +209,6 @@ export default function Home() {
                             {expandedId === restaurant.id ? 'Ocultar Reseñas ↑' : 'Ver Reseñas ↓'}
                         </button>
 
-                        {/* Caja de comentarios que aparece al darle clic */}
                         {expandedId === restaurant.id && (
                             <div style={{ marginTop: '15px', padding: '15px', background: '#f8f9fa', borderRadius: '8px' }}>
                                 {restaurant.reviews && restaurant.reviews.length > 0 ? (
@@ -150,7 +224,7 @@ export default function Home() {
                                     ))
                                 ) : (
                                     <p style={{ margin: 0, fontSize: '0.9rem', color: '#7f8c8d', textAlign: 'center' }}>
-                                        Aún no hay reseñas. ¡Inicia sesión y sé el primero en comentar!
+                                        Aún no hay reseñas. ¡Sé el primero en comentar!
                                     </p>
                                 )}
                             </div>
@@ -159,26 +233,54 @@ export default function Home() {
                 ))}
             </div>
 
+            {/* MODALES CONSERVADOS INTACTOS */}
             {modalOpen && (
                 <div className="modal-overlay">
                     <div className="modal-content">
                         <h3>Calificando con {currentReview.rating} Estrellas ⭐</h3>
                         <p>Cuéntanos tu experiencia en este lugar:</p>
-                        
                         <textarea 
                             rows="4" 
-                            placeholder="La comida estuvo excelente, el servicio muy rápido..."
+                            placeholder="La comida estuvo excelente..."
                             value={commentText}
                             onChange={(e) => setCommentText(e.target.value)}
+                            style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #ccc', boxSizing: 'border-box' }}
                         ></textarea>
-                        
                         <div className="modal-actions">
-                            <button className="btn-secondary" onClick={() => setModalOpen(false)}>
-                                Cancelar
-                            </button>
-                            <button className="btn-primary" onClick={submitReview}>
-                                Publicar Reseña
-                            </button>
+                            <button className="btn-secondary" onClick={() => setModalOpen(false)}>Cancelar</button>
+                            <button className="btn-primary" onClick={submitReview}>Publicar Reseña</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {addModalOpen && (
+                <div className="modal-overlay">
+                    <div className="modal-content">
+                        <h3>Agregar Nuevo Restaurante 🍽️</h3>
+                        <div style={{ marginBottom: '15px', marginTop: '15px' }}>
+                            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#7f8c8d' }}>Nombre del lugar</label>
+                            <input 
+                                type="text" 
+                                placeholder="Ej. Tacos El Pata"
+                                value={newRestaurant.name}
+                                onChange={(e) => setNewRestaurant({...newRestaurant, name: e.target.value})}
+                                style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #ccc', boxSizing: 'border-box' }}
+                            />
+                        </div>
+                        <div style={{ marginBottom: '20px' }}>
+                            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#7f8c8d' }}>Dirección</label>
+                            <input 
+                                type="text" 
+                                placeholder="Ej. Blvd. Bernardo Quintana"
+                                value={newRestaurant.address}
+                                onChange={(e) => setNewRestaurant({...newRestaurant, address: e.target.value})}
+                                style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #ccc', boxSizing: 'border-box' }}
+                            />
+                        </div>
+                        <div className="modal-actions">
+                            <button className="btn-secondary" onClick={() => setAddModalOpen(false)}>Cancelar</button>
+                            <button className="btn-primary" style={{ backgroundColor: '#2ecc71' }} onClick={handleAddRestaurant}>Guardar Restaurante</button>
                         </div>
                     </div>
                 </div>

@@ -1,0 +1,5 @@
+cd dinego-app
+npm run dev
+
+cd dinego-api
+npm run dev
